@@ -193,16 +193,21 @@
 			<svg class='icon icon--l txt-h1'><use xlink:href='#icon-close'/></svg>
 		</button>
 
+		<div id='preview-info' class='absolute right bottom color-white bg-darken10 py12 px12 z5'>
+			<span id='gridname' class='block txt-m txt-bold align-r'></span>
+			<span id='nbimg' class='block txt-m txt-bold align-r'></span>
+		</div>
+
 		<div id="download" data-scene="" class='h-full w300 relative bg-white flex-child scroll-auto'>
 
 			<!-- Add Scene info on top -->
 
 			<ul id='toolbar' class='grid'>
-				<li id='band' class="col col--4 active" title="band" onclick="switchPane(this)">
+				<li id='band' class="col col--4 active" title="download" onclick="switchPane(this)">
 					<svg class='icon icon--l inline-block'><use xlink:href='#icon-minus'/></svg>
 				</li>
 
-				<li id='rgb' class="col col--4 " itle="rgb" onclick="switchPane(this)">
+				<li id='rgb' class="col col--4 " title="rgb" onclick="switchPane(this)">
 					<svg class='icon icon--l inline-block'><use xlink:href='#icon-menu'/></svg>
 				</li>
 
@@ -249,11 +254,26 @@
 					</div>
 				</section>
 
-				<div id='img-preview' class="px12 py12 relative">
-					<div class="overview">
-            <img class="img-responsive img-grid none">
-						<span class="loading"></span>
-          </div>
+				<div id='download-options'>
+					<hr class='txt-hr mt-neg3 mb-neg6'>
+
+					<div id='img-preview' class="px6 py6 relative">
+						<div class="overview">
+	            <img class="img-responsive img-grid none">
+							<span class="loading"></span>
+	          </div>
+					</div>
+
+					<div id='download-button' class="relative">
+						<button id='btn-dwn' class='btn btn--stroke btn--stroke--2 mx6'>Download</button>
+						<a id='btn-dwn-ready' disabled class='btn btn--stroke btn--stroke--2 mx6 none' href="" target="_blank" download><div class="loading loading--s"></div></a>
+						<hr class='txt-hr my6'>
+
+						<div class='prose'>
+							<small class='px12'>Full resolution download. Processing made live on AWS lambda function via RemotePixel api. File creation takes between 20-25sec.</small>
+						</div>
+					</div>
+
 				</div>
 				<!--  Download button here -->
 			</div>

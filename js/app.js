@@ -294,7 +294,7 @@ const buildQueryAndRequestCBERS = (features) => {
 
 
 const previewL8 = (e) => {
-    const grid = e.getAttribute('data-grid');
+  const grid = e.getAttribute('data-grid');
   const res = scope.results[grid];
 
   for (let i = 0; i < res.length; i += 1) {
@@ -310,6 +310,8 @@ const previewL8 = (e) => {
         '</div>' +
       '</div>');
   }
+  $('#gridname').text(`Grid: ${grid}`);
+  $('#nbimg').text(`Nb scenes: ${res.length}`);
   $('#preview').addClass('in');
 };
 
@@ -332,6 +334,8 @@ const previewS2 = (e) => {
         '</div>' +
       '</div>');
   }
+  $('#gridname').text(`Grid: ${grid}`);
+  $('#nbimg').text(`Nb scenes: ${res.length}`);
   $('#preview').addClass('in');
 };
 
@@ -352,6 +356,8 @@ const previewCBERS = (e) => {
         '</div>' +
       '</div>');
   }
+  $('#gridname').text(`Grid: ${grid}`);
+  $('#nbimg').text(`Nb scenes: ${res.length}`);
   $('#preview').addClass('in');
 };
 
@@ -405,6 +411,8 @@ const updateLandsatUI = (info) => {
   $('#band ul').append(`<li><a id="bQA" class="color-red-on-hover txt-xs txt-m-mm" target="_blank" href="${aws_url}_BQA.TIF" download>BQA - Quality Assessment</a></li>`);
   $('#band ul').append(`<li><a id="mtl" class="color-red-on-hover txt-xs txt-m-mm" target="_blank" href="${aws_url}_MTL.txt" download>MTL - Metadata</a></li>`);
 
+  $("#btn-dwn").html('Download').prop('disabled', false).removeClass('none').removeClass('btn--red');
+  $("#btn-dwn-ready").addClass('none').attr('href','');
   if ($('#toolbar .active')[0].id !== 'band') updatePreview();
 };
 
@@ -432,12 +440,15 @@ const updateSentinelUI = (info) => {
 };
 
 const updateCbersUI = (info) => {
+  $("#btn-dwn").html('Download').prop('disabled', false).removeClass('none').removeClass('btn--red');
+  $("#btn-dwn-ready").addClass('none').attr('href','');
   if ($('#toolbar .active')[0].id !== 'band') updatePreview();
 };
 
 // Download UI
 const landsatUI = () => {
   switchPane({id:'band'});
+  $("#download-button").removeClass('none');
 
   $(`#toolbar #band`).removeClass('disabled-click');
   $('#toolbar #band ul').empty();
@@ -487,6 +498,7 @@ const landsatUI = () => {
 
 const sentinelUI = () => {
   switchPane({id:'band'});
+  $("#download-button").addClass('none');
 
   $(`#toolbar #band`).removeClass('disabled-click');
   $('#toolbar #band ul').empty();
@@ -532,9 +544,9 @@ const sentinelUI = () => {
 };
 
 const cbersUI = () => {
-
   $(`#toolbar #band`).addClass('disabled-click');
   switchPane({id:'rgb'});
+  $("#download-button").removeClass('none');
 
   $('#rgb-selection').empty();
   $('#rgb-selection').append(
@@ -561,6 +573,9 @@ const cbersUI = () => {
 
 const updatePreview = () => {
   if (!$('#download').hasClass('in')) return;
+
+  $("#btn-dwn").html('Download').prop('disabled', false).removeClass('none').removeClass('btn--red');
+  $("#btn-dwn-ready").addClass('none').attr('href','');
 
   const sat = $(".map-top-right .toggle-group input:checked")[0].getAttribute('sat');
 
@@ -610,6 +625,59 @@ const updatePreview = () => {
     });
 };
 
+document.getElementById('btn-dwn').onclick = () => {
+
+  const sat = $(".map-top-right .toggle-group input:checked")[0].getAttribute('sat');
+
+  let url;
+  switch(sat) {
+    case 'landsat':
+      url = `${landsat_services}/full`;
+      break;
+    case 'sentinel':
+      url = `${sentinel_services}/full`;
+      break;
+    case 'cbers':
+      url = `${cbers_services}/full`;
+      break;
+    default:
+      throw new Error(`Invalid ${sat}`);
+  }
+
+  let scene = $('#scenes-preview .active')[0].getAttribute('data-scene');
+  let params = {
+    'scene': scene};
+
+  // RGB
+  if ($('#rgb').hasClass('active')) {
+    const r = document.getElementById('r').value;
+    const g = document.getElementById('g').value;
+    const b = document.getElementById('b').value;
+    params.bands = [r, g, b].join(',');
+  } else if ($('#process').hasClass('active')) {
+    params.expression = encodeURIComponent(document.getElementById('ratio-selection').value);
+  }
+
+  const url_params = Object.keys(params).map(i => `${i}=${params[i]}`).join('&');
+
+  $("#btn-dwn").html('<div class="loading loading--s">');
+  $("#btn-dwn").prop('disabled', true);
+  $.get(url, url_params)
+    .done((data) => {
+      $("#btn-dwn").addClass('none');
+      $("#btn-dwn-ready").removeClass('none');
+      $("#btn-dwn-ready").attr('href', data.path);
+      $("#btn-dwn-ready").html('Ready');
+    })
+    .fail(err => {
+      console.warn(err);
+      $("#btn-dwn").addClass('btn--red');
+      $("#btn-dwn-ready").html('Error');
+    });
+
+
+}
+
 const switchPane = (event) => {
   $('#toolbar li').removeClass('active');
   $('#menu-content section').removeClass('active');
@@ -617,9 +685,9 @@ const switchPane = (event) => {
   $(`#menu-content #${event.id}`).addClass('active');
   if (event.id !== 'band') updatePreview();
   if (event.id === 'band') {
-    $('#img-preview').addClass('none');
+    $('#download-options').addClass('none');
   } else {
-    $('#img-preview').removeClass('none');
+    $('#download-options').removeClass('none');
   }
 
 };
@@ -795,23 +863,27 @@ const addLayers = (source_id) => {
   if (map.getLayer('Highlighted')) map.removeLayer('Highlighted');
   if (map.getLayer('Selected')) map.removeLayer('Selected');
 
-  let source_layer,
+  let grid_layer,
+      centroid_layer,
       grid_name;
 
   switch(source_id) {
     case 'landsat':
-      source_layer = 'Landsat8_Desc_filtr2';
+      grid_layer = 'Landsat8_Desc_filtr2';
+      centroid_layer = 'Landsat8_Desc_filtr_Centro';
       grid_name = '{PATH}/{ROW}';
       landsatUI();
       break;
     case 'sentinel':
-      source_layer = 'Sentinel2_Grid'
-      grid_name = '{PATH}/{ROW}';
+      grid_layer = 'Sentinel2_Grid'
+      centroid_layer = 'Sentinel2_Grid_Centroid';
+      grid_name = '{Name}';
       sentinelUI();
       break;
     case 'cbers':
-      source_layer = 'cbers_grid-41mvmk'
-      grid_name = '{Name}';
+      grid_layer = 'cbers_grid-41mvmk'
+      centroid_layer = 'cbers_grid_centroid-bsmelo';
+      grid_name = '{PATH}/{ROW}';
       cbersUI();
       break;
     default:
@@ -819,10 +891,48 @@ const addLayers = (source_id) => {
   }
 
   map.addLayer({
+      'id': 'GridName',
+      'type': 'symbol',
+      'source': `${source_id}Centroid`,
+      'source-layer': centroid_layer,
+      'layout': {
+          'text-field': grid_name,
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': {
+              'base': 1,
+              'stops': [
+                  [3, 8],
+                  [20, 20]
+              ]
+          },
+          'text-allow-overlap': true,
+          'visibility': 'visible'
+      },
+      'paint': {
+          'text-color': 'hsl(0, 0%, 100%)',
+          'text-opacity': 1
+      },
+      'minzoom': 5
+  });
+
+  map.addLayer({
+      'id': `GridIcon`,
+      'type': 'circle',
+      'source': `${source_id}Centroid`,
+      'source-layer': centroid_layer,
+      'paint': {
+          'circle-color': 'hsl(207, 84%, 57%)',
+          'circle-opacity': 0.7,
+          'circle-radius': 21
+      },
+      'minzoom': 5
+  }, 'GridName');
+
+  map.addLayer({
       'id': 'Grid',
       'type': 'fill',
       'source': source_id,
-      'source-layer': source_layer,
+      'source-layer': grid_layer,
       'paint': {
           'fill-color': 'hsla(0, 0%, 0%, 0)',
           'fill-outline-color': {
@@ -840,7 +950,7 @@ const addLayers = (source_id) => {
       'id': 'Highlighted',
       'type': 'fill',
       'source': source_id,
-      'source-layer': source_layer,
+      'source-layer': grid_layer,
       'paint': {
           'fill-outline-color': '#1386af',
           'fill-color': '#0f6d8e',
@@ -853,58 +963,13 @@ const addLayers = (source_id) => {
       'id': 'Selected',
       'type': 'line',
       'source': source_id,
-      'source-layer': source_layer,
+      'source-layer': grid_layer,
       'paint': {
           'line-color': '#4c67da',
           'line-width': 3
       },
       'filter': ['in', 'PATH', '']
   }, 'admin-2-boundaries-bg');
-  //
-  // map.addLayer({
-  //     'id': 'GridCentroid',
-  //     'type': 'circle',
-  //     'source': source_id,
-  //     'source-layer': source_layer,
-  //     'paint': {
-  //         'circle-color': 'hsl(207, 84%, 57%)',
-  //         'circle-opacity': 0.7,
-  //         'circle-radius': 21
-  //     },
-  //     'minzoom': 4.3
-  // }, 'admin-2-boundaries-bg');
-  //
-  // map.addLayer({
-  //     'id': 'GridName',
-  //     'type': 'symbol',
-  //     'source': source_id,
-  //     'source-layer': source_layer,
-  //     'layout': {
-  //         'text-field': grid_name,
-  //         'text-font': {
-  //             'base': 1,
-  //             'stops': [
-  //                 [0, ['Open Sans Bold', 'Arial Unicode MS Bold']],
-  //                 [22, ['Open Sans Bold', 'Arial Unicode MS Bold']]
-  //             ]
-  //         },
-  //         'text-size': {
-  //             'base': 1,
-  //             'stops': [
-  //                 [3, 8],
-  //                 [10, 10],
-  //                 [20, 35]
-  //             ]
-  //         },
-  //         'visibility': 'visible'
-  //     },
-  //     'paint': {
-  //         'text-color': 'hsl(0, 0%, 100%)',
-  //         'text-opacity': 1
-  //     },
-  //     'minzoom': 4.3
-  // }, 'admin-2-boundaries-bg');
-
 }
 
 map.on('load', () => {
@@ -912,13 +977,25 @@ map.on('load', () => {
     'type': 'vector',
     'url': 'mapbox://vincentsarago.8ib6ynrs'
   });
+  map.addSource('landsatCentroid', {
+    'type': 'vector',
+    'url': 'mapbox://vincentsarago.9sh46kql'
+  });
   map.addSource('sentinel', {
     'type': 'vector',
     'url': 'mapbox://vincentsarago.0qowxm38'
   });
+  map.addSource('sentinelCentroid', {
+    'type': 'vector',
+    'url': 'mapbox://vincentsarago.29xm4q9t'
+  });
   map.addSource('cbers', {
     'type': 'vector',
     'url': 'mapbox://vincentsarago.3a75bnx8'
+  });
+  map.addSource('cbersCentroid', {
+    'type': 'vector',
+    'url': 'mapbox://vincentsarago.612drfr7'
   });
   addLayers('landsat');
   $('.loading-map').addClass('off');
@@ -927,6 +1004,8 @@ map.on('load', () => {
 const closePreview = () => {
   $('#scenes-preview').scrollTop(0);
   $('#scenes-preview').empty();
+  $('#gridname').text('');
+  $('#nbimg').text('');
   $('#preview').removeClass('in');
   $('#download').removeClass('in');
 };
